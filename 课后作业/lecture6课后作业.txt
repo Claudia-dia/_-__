@@ -1,0 +1,80 @@
+一.python连接数据库
+# -*- coding: UTF-8 -*-  
+import MySQLdb 
+# 打开数据库连接 
+db = MySQLdb.connect("localhost", "root", "123456", "test") 
+# 使用cursor()方法获取操作游标 
+cursor = db.cursor() 
+# SQL插入语句  
+ins_sql1 = 'insert into employee(first_name, last_name, age, sex, income) values (%s, %s, %s, %s, %s)'
+# SQL查询语句 
+sel_sql = 'select * from employee where first_name = %s'
+# SQL更新语句 
+upd_sql = 'update employee set age = %s where sex = %s'
+# SQL删除语句 
+del_sql = 'delete from employee where first_name = %s'
+try: 
+  # 执行sql语句 
+  # insert 
+  cursor.execute(ins_sql) 
+  cursor.execute(ins_sql1, ('xu', 'f', 20, 'M', 8000)) 
+  # select 
+  cursor.execute(sel_sql, ('yu',)) 
+  values = cursor.fetchall() 
+  print(values 
+  # update 
+  cursor.execute(upd_sql, (24, 'M',)) 
+  # delete 
+  cursor.execute(del_sql, ('xu',)) 
+  # 提交到数据库执行 
+  db.commit() 
+except: 
+  # 发生错误时回滚 
+  db.rollback() 
+# 关闭数据库连接 
+db.close()
+
+
+
+二.PHP数据库函数连接MySQL
+<?php
+$con=mysql_connect(‘localhost’，’root’，’adminpassword’);
+/*上面localhost是数据库服务器的名称，root是用户名，后面一项是root密码。*/
+Mysql_select_db(‘database’);
+/*选择一个数据库，database代表数据库的名字*/
+  $query=“select * from table”;
+/*建立数据库操作语句，table指表的名字*/
+$result=mysql_query($query，$con);
+/*执行数据库操作语句，若为查询则返回一个查询结果id赋于$result */
+$maxrows=mysql_num_nows($result);
+/*取得结果集中的记录数*/
+for($i=0; $i<$maxrows; $i++)
+{	
+  $value=mysql_result($result，$i，’fieldname’);
+  echo $value.”<br>”;
+}
+/*for循环将结果集中每一条记录的fieldname字段的值存于变量value中并且将其输出到网上*/
+mysql_close($con);/*关门数据库的连接*/
+?>
+
+
+
+
+三.PHP通过ODBC 连接MySQL
+<?php
+$con=odbc_connect(“ODBC数据源”，”username” ，”password”);
+$query=“select * from table”;
+$result=odbc_do($con，$query);
+/*执行查询语句，返回一个ID赋予result*/
+$maxrows=odbc_num_rows($result);
+/*取得结果集result中的记录数*/
+for($i=0; $i<$maxrows;$i++)
+{	
+  odbc_fetch_row($result，$i);
+  /*将指针定位到第i条记录上*/
+  $value=odbc_result($result，’fieldname’);
+  /*将结果集中第i条记录的字	段’fieldname’值赋予value*/
+  echo $value.”<br>”  /*输出value值*/
+}
+odbc_close($con);    /*关门连接*/
+?>

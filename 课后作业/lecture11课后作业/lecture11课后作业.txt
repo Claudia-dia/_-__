@@ -1,0 +1,447 @@
+>>Apache安装与配置测试
+一、安装apache
+
+1.首先yum方式安装http2.2
+
+# yum install httpd -y
+	
+httpd的主要目录
+		/etc/httpd/conf/httpd.conf   主配置文件
+		/etc/httpd/conf.d            子配置文件目录
+		/var/log/httpd/              日志文件目录（access.log error.log）
+		/etc/httpd/modules           模块文件的目录
+		/var/www/html                默认网站根目录
+
+
+2.启动httpd
+
+	# service httpd start
+	# chkconfig httpd on
+	# chkconfig --list httpd
+
+二、配置文件/etc/httpd/conf/httpd.conf
+配置1：配置prefork模块功能
+<IfModule prefork.c>               <<< 判断是否在使用prefork模块，如果在使用，那么下面的参数生效
+	StartServers       8           <<< 启动httpd的时候，启动几个子进程
+	MinSpareServers    5           <<< 最少空闲子进程数
+	MaxSpareServers   20           <<< 最多空闲子进程数
+	ServerLimit      256           <<< 最多活动子进程数
+	MaxClients       256           <<< 最大并发数
+	MaxRequestsPerChild  4000      <<< 设置当子进程处理了多少个请求后，就立刻回收该子进程
+</IfModule>
+
+配置2：配置长连接功能
+KeepAlive Off|On               
+MaxKeepAliveRequests 100           <<< 长链接处理请求的最大值，超过则断开keepalive
+KeepAliveTimeout 15                <<< keepAlive的断开时间
+
+配置3：配置httpd监听的套接字
+Listen 80                          <<< 监听所有IP的80端口
+Listen 10.220.5.190:80             <<< 监听10.220.5.190的80端口
+
+配置4：配置worker模块功能
+<IfModule worker.c>
+StartServers         4             <<< 启动4个子进程          
+MaxClients         300             <<< 最大并发数
+MinSpareThreads     25             <<< 最少空闲线程数  
+MaxSpareThreads     75             <<< 最多空闲线程数  
+ThreadsPerChild     25             <<< 每个子进程可以创建多个线程
+MaxRequestsPerChild  0             <<< 设置当子进程处理了多少个请求后，就立刻回收该子进程（0永不回收）
+</IfModule>
+
+配置5：配置DSO
+模块
+
+装载：LoadModule ModuleName /path/to/module
+
+
+补充：
+httpd -M：显示所有模块（包括DSO 和 非DSO模块）
+httpd -l：显示仅仅是可以使用的非DSO模块
+
+配置6：配置网站根目录
+DocumentRoot
+默认：/var/www/html
+
+说明：
+	访问网站的时候，比如10.220.5.180 的是，默认是去网站根目录下找资源，也就是/var/www/html找资源
+	现在资源/var/www/html下的jd目录中，因此找资源的方式，就需要在ip后指定资源所在的目录
+
+配置7：配置默认主页
+当客户端没有指定要请求哪个文件，那么就自动发送给客户端一个默认文件，这就是默认首页
+DirectoryIndex  
+
+配置8：访问控制
+<Directory /path/to/control>
+控制的范围：
+	整个网站做控制
+	网站的某个页面、目录做控制
+</Directory>
+
+
+options
+	FollowSymLinks：允许通过符号连接的方式来访问网站根目录下的资源的文件
+	Indexes：如果用户没有指定所请求的文件，而且系统中也找不到默认首页，则将全部的文件列表返回给用户
+
+AllowOverride
+	指定各个目录下的.htaccess中的控制指令是否可以覆盖掉主配置文件中的控制指令
+	None：忽略各个目录下的.htaccess
+	All：用各个目录下的.htaccess中的配置覆盖掉主配置文件中的控制指令
+	AuthConfig：实现基于用户名/密码的访问控制
+
+
+对用户的访问控制
+1. 基于IP的访问控制
+2. 基于用户和密码的访问控制
+
+配置9：基于IP的访问控制
+Order：指定次序
+	Order Allow Deny
+	Order Deny Allow
+	【后面的那个是默认值】
+
+Allow from 指定允许访问的主机列表
+Deny from 指定禁止访问的主机列表
+【多条规则的组合结果】
+
+指定主机列表
+	192.168.5.123
+	192.168.5.0/24
+	192.168.5
+
+例子
+    Order Allow Deny
+    Allow from 192.168.5.123 192.168.5.124 
+    Deny from 192.168.5.123
+    
+   
+Order Allow Deny
+	只匹配到allow，按allow处理
+	只匹配到deny，按deny处理
+	如果两个都匹配到了，则按照默认规则处理
+	如果两个都没有匹配到了，则按照默认规则处理
+
+配置10：用户目录
+每个系统用户的家目录其实都可以做成一个网站的根目录，访问该用户家目录下的网站的方式
+http://ip:port/~userName
+
+配置11：日志
+访问日志：
+	定义：
+		日志格式：LogFormat 格式信息  格式名称
+			%h：远程主机的IP地址
+			%t：请求时间
+			%l：客户端登录网站所用的用户名，客户端没有登录，显示 -
+			%u：远程用于做身份认证的用户名，如果没有做认证，显示 -
+			%r：请求报文的第一行（请求方法，请求的uri，请求的版本号）
+			%s：服务器端所返回的状态值
+			\"%{Referer}i\"：显示该用户的请求是否为跳转过来的，如果不是跳转来的，显示 - 
+			\"%{User-Agent}i\"：客户端的浏览器类型
+
+		日志位置：CustomLog  保存位置  格式名称
+
+配置12：设置字符集
+AddDefaultCharset UTF-8
+
+配置13：配置路径别名
+Alias /error/ "/var/www/error/"
+
+注意：
+	结尾必须相同
+1234
+配置14：配置CGI
+CGI：Common Gateway Interface，是一种协议
+作用：运行让用户请求一个脚本，然后将脚本的执行结果返回给客户端，这里就用到了CGI协议，CGI协议就是让apache启动一个解释器来执行脚本程序，然后将执行的结果发送给客户端
+
+脚本要想使用CGI执行，并给客户端返回结果，脚本的输出格式是固定
+第一行：Content-Type： text/html
+第二行：空白行
+第三行：这行开始是脚本的正文
+
+a.sh
+	#!/bin/bash
+	echo "Content-Type: text/html"
+	echo ""
+	echo "my name is :`hostname`"
+	echo "date is: `date`"
+
+
+CGI找脚本的位置
+	ScriptsAlias /cgi-bin/ "/var/www/cgi-bin/"
+
+配置15：配置虚拟主机功能
+案例：http基于域名的虚拟主机的实现
+发布多个网站
+	在网站跟目录下，创建多个子目录，每个子目录是一个网站
+	每个网站--虚拟主机
+
+
+
+虚拟主机：用一个apache发布多个网站
+	1：不同的网站用不同的端口
+	2：不同的网站用不同的IP
+	3：不同的网站用不同的域名
+
+配置16：状态页面
+通过一个页面来显示服务器的状态
+功能依赖一个DSO模块：status_module
+
+<Location /server-status>       <<< 指定如何访问这个状态页面
+    SetHandler server-status    <<< 指定做状态统计的处理器
+    Order deny,allow
+    Deny from all                <<< 拒绝所有用户
+    Allow from x.x.x.x          <<< 指定可以访问这个页面的客户端列表
+</Location>
+
+说明
+	一个点就表示一个可以启动，但是尚未启动的进程
+	一个_ 表示一个等待使用的进程
+	如果一个进程被使用，位置上就会出现一个字母
+
+配置17：页面压缩
+功能依赖一个DSO模块：deflate_module
+作用：减少传输的数据量，但是带来额外的系统开销
+
+SetOutPutFilter DEFLATE                      <<< 启动页面压缩功能
+<IfModule mod_deflate.c>
+   AddOutPutFilterByType DEFLATE text/html   <<< 指定对什么类型的文件做压缩
+   AddOutPutFilterByType DEFLATE text/image
+   DeflateCompressionLevel 9                 <<< 指定压缩比
+</IfModule>
+
+配置18：基于用户的访问控制
+范围
+	整个网站
+	某一个或者多个目录
+虚拟用户
+
+用户控制相关模块
+1：auth：指定认证方式
+	basic：基本认证，也就是用户名+密码（明文）
+	digest：基于摘要方式做认证（hash）
+2. authn：指定认证的提供者（用于做认证的信息的保存位置）
+3. auzhz：指定授权机制
+
+
+
+
+>>nginx 安装与配置测试
+一.安装gcc
+# yum install gcc-c++ -y
+
+安装nginx所需要的依赖库
+# yum -y install zlib-devel openssl-devel pcre-devel
+
+下载nginx源码并解压
+# wget -c http://nginx.org/download/nginx-1.6.2.tar.gz
+
+下载完成后
+# mv nginx-1.6.2.tar.gz nginx
+# cd nginx
+# ./configure --user=nginx --group=nginx --prefix=/usr/local/nginx --with-http_addition_module --with-http_flv_module --with-http_gzip_static_module --with-http_realip_module --with-http_ssl_module --with-http_stub_status_module --with-http_sub_module --with-http_dav_module
+# make && make install
+检查是否安装成功
+# cd /usr/local/nginx/sbin
+#./nginx -t
+nginx: the configuration file /usr/local/nginx/conf/nginx.conf syntax is ok
+nginx: configuration file /usr/local/nginx/conf/nginx.conf test is successful
+
+相关命令：
+//启动
+# ./nginx 
+//停止
+#./nginx -s stop
+//重新启动
+#./nginx -s reload
+
+查看nginx是否启动成功
+# ps -ef|grep nginx 
+root      37590      1  0 11:16 ?        00:00:00 nginx: master process /usr/local/nginx/sbin/nginx -c /usr/local/nginx/conf/nginx.conf
+nobody    39096  37590  0 11:38 ?        00:00:00 nginx: worker process
+root      39134   3161  0 11:39 pts/0    00:00:00 grep --color=auto nginx
+# netstat -na | grep 80
+tcp        0      0 0.0.0.0:80              0.0.0.0:*               LISTEN     
+tcp6       0      0 :::8080                 :::*                    LISTEN     
+tcp6       0      0 127.0.0.1:8005          :::*                    LISTEN     
+tcp6       0      0 :::8009                 :::*                    LISTEN
+
+二.nginx 配置
+进入配置文件
+# vim /usr/local/nginx/conf/nginx.conf
+
+配置文件内容详解：
+#开启进程数 <=CPU数
+worker_processes 1;
+#错误日志保存位置
+#error_log logs/error.log;
+#error_log logs/error.log notice;
+#error_log logs/error.log info;
+#进程号保存文件
+#pid logs/nginx.pid;
+#等待事件
+events {
+#每个进程最大连接数（最大连接=连接数x进程数） 
+worker_connections 1024;
+}
+http {
+#文件扩展名与文件类型映射表
+include mime.types;
+#默认文件类型
+default_type application/octet-stream;
+#日志文件输出格式 这个位置相于全局设置
+#log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+# '$status $body_bytes_sent "$http_referer" '
+# '"$http_user_agent" "$http_x_forwarded_for"';
+#请求日志保存位置
+#access_log logs/access.log main;
+#打开发送文件
+sendfile on;
+#tcp_nopush on;
+#连接超时时间
+#keepalive_timeout 0;
+keepalive_timeout 65;
+#打开gzip压缩
+#gzip on;
+#设定请求缓冲
+client_header_buffer_size 1k;
+large_client_header_buffers 4 4k;
+#设定负载均衡的服务器列表
+upstream myproject { 
+#weigth参数表示权值，权值越高被分配到的几率越大
+#max_fails 当有#max_fails个请求失败，就表示后端的服务器不可用，默认为1，将其设置为0可以关闭检查
+#fail_timeout 在以后的#fail_timeout时间内nginx不会再把请求发往已检查出标记为不可用的服务器
+#这里指定多个源服务器，ip:端口,80端口的话可写可不写 
+server 192.168.1.78:8080 weight=5 max_fails=2 fail_timeout=600s;
+#server 192.168.1.222:8080 weight=3 max_fails=2 fail_timeout=600s; 
+}
+#第一个虚拟主机
+server {
+#监听IP端口
+listen 80;
+#主机名
+server_name localhost;
+#设置字符集
+#charset koi8-r;
+#本虚拟server的访问日志 相当于局部变量
+#access_log logs/host.access.log main; 
+#对本server"/"启用负载均衡
+location / { 
+#root /root; #定义服务器的默认网站根目录位置
+#index index.php index.html index.htm; #定义首页索引文件的名称
+proxy_pass http://myproject; #请求转向myproject定义的服务器列表
+#以下是一些反向代理的配置可删除.
+# proxy_redirect off; 
+# proxy_set_header Host $host; 
+# proxy_set_header X-Real-IP $remote_addr; 
+# proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; 
+# client_max_body_size 10m; #允许客户端请求的最大单文件字节数 
+# client_body_buffer_size 128k; #缓冲区代理缓冲用户端请求的最大字节数， 
+# proxy_connect_timeout 90; #nginx跟后端服务器连接超时时间(代理连接超时) 
+# proxy_send_timeout 90; #后端服务器数据回传时间(代理发送超时) 
+# proxy_read_timeout 90; #连接成功后，后端服务器响应时间(代理接收超时) 
+# proxy_buffer_size 4k; #设置代理服务器（nginx）保存用户头信息的缓冲区大小 
+# proxy_buffers 4 32k; #proxy_buffers缓冲区，网页平均在32k以下的话，这样设置 
+# proxy_busy_buffers_size 64k; #高负荷下缓冲大小（proxy_buffers*2） 
+# proxy_temp_file_write_size 64k; #设定缓存文件夹大小，大于这个值，将从upstream服务器传
+} 
+location /upload { 
+alias e:/upload; 
+}
+#设定查看Nginx状态的地址 
+location /NginxStatus { 
+stub_status on; 
+access_log off; 
+#allow 192.168.0.3;
+#deny all;
+#auth_basic "NginxStatus"; 
+#auth_basic_user_file conf/htpasswd; 
+}
+#error_page 404 /404.html;
+# redirect server error pages to the static page /50x.html
+# 定义错误提示页面
+error_page 500 502 503 504 /50x.html;
+location = /50x.html {
+root html;
+}
+# proxy the PHP scripts to Apache listening on 127.0.0.1:80
+#
+#location ~ \.php$ {
+# proxy_pass http://127.0.0.1;
+#}
+# pass the PHP scripts to FastCGI server listening on 127.0.0.1:9000
+#
+#location ~ \.php$ {
+# root html;
+# fastcgi_pass 127.0.0.1:9000;
+# fastcgi_index index.php;
+# fastcgi_param SCRIPT_FILENAME /scripts$fastcgi_script_name;
+# include fastcgi_params;
+#}
+# deny access to .htaccess files, if Apache's document root
+# concurs with nginx's one
+#
+#location ~ /\.ht {
+# deny all;
+#}
+} 
+# another virtual host using mix of IP-, name-, and port-based configuration
+#
+#server {
+#多监听 
+# listen 8000;
+#主机名
+# listen somename:8080;
+# server_name somename alias another.alias;
+# location / {
+#WEB文件路径
+# root html;
+#默认首页
+# index index.html index.htm;
+# }
+#}
+# HTTPS server HTTPS SSL加密服务器
+#
+#server {
+# listen 443;
+# server_name localhost;
+# ssl on;
+# ssl_certificate cert.pem;
+# ssl_certificate_key cert.key;
+# ssl_session_timeout 5m;
+# ssl_protocols SSLv2 SSLv3 TLSv1;
+# ssl_ciphers HIGH:!aNULL:!MD5;
+# ssl_prefer_server_ciphers on;
+# location / {
+# root html;
+# index index.html index.htm;
+# }
+#} 
+}
+
+
+三.一个简单的测试
+修改nginx.conf文件
+    server {
+        listen      800;//监听端口（因为80本占用，因此改为800）
+        server_name  www.testplatform-dev.com;//访问域名
+
+        charset utf-8;
+
+        #access_log  logs/host.access.log  main;
+
+        location / {
+        proxy_redirect off;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For 在这里插入图片描述$proxy_add_x_forwarded_for;
+        proxy_pass http://10.103.27.15:3000/mock/23/;//mock服务地址
+        }
+
+重启nginx
+# ./nginx -s reload
+
+修改本地hosts文件，添加域名解析到nginx服务：
+10.103.27.34  www.testplatform-dev.com
+
+此时访问 http://www.testplatform-dev.com:800/test_build_check/
+可访问到mock服务

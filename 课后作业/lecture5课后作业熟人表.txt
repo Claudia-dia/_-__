@@ -1,0 +1,39 @@
+/* 1.找出互不认识的人。 */
+with person(p) as
+(select friend1 as p from acquaintance
+union
+select friend2 as p from acquaintance),
+
+Allperson(f1, f2) as
+(select p1.p as f1, p2.p as f2
+from person as p1, person as p2),
+
+A(f1,f2) as 
+(
+select friend1 as f1,friend2 as f2 from acquaintance
+union
+select friend2 as f1,friend1 as f2 from acquaintance
+)
+
+select f1 as p1, f2 as p2 from Allperson 
+where not exists(
+    select * from A 
+    where A.f1=Allperson.f1 and A.f2=Allperson.f2 
+)
+
+
+-- 2.找出只在一个类别里出现的人。+++++
+with PC(person, class) as
+(select friend1,class
+from acquaintance as a
+where a.friend1<>a.friend2
+union
+select friend2,class
+from acquaintance as a
+where a.friend1<>a.friend2 )
+
+select person
+from PC
+group by person
+having count(class)=1
+

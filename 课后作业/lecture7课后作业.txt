@@ -1,0 +1,204 @@
+1.参数in的使用(代表输入，意思说你的参数要传到存过过程的过程里面去)
+
+案例功能：求1-n的和
+
+*/
+delimiter $
+create procedure p1(in n int)
+begin
+declare total int default 0;
+declare num int default 0;
+while num < n do
+set num:=num+1;
+set total:=total+num;
+end while;
+select total;
+end$
+call p1(10)$
+创建并执行完存储过程，运行结果如下：
+
+2.参数out的使用(代表往外输出)
+
+/**
+案例功能：求1-n的和
+
+*/
+create procedure p2(in n int,out total int)
+begin
+declare num int default 0;
+set total:=0;
+while num < n do
+set num:=num+1;
+set total:=total+num;
+end while;
+end$
+注意：对于第一个输入参数我们可以理解，但是第二个输出参数我们到底应该怎么输？
+这里我们需要对第二个参数定义一个变量名(更形象点就是你输入一个输入类型的参数n，由输出参数total往外发射输出我们只需要定义一个变量名来接收这个输出值即可)
+call p2(100,@sum)$//这里的@sum就是我定义用来接收处处total的值
+select @sum$
+创建并执行完存储过程(查询定义的变量值)，运行结果如下：
+
+总结in、out区别：
+in:表示输入一个值，你需要一个值，我给你一个值
+out:你往外输出一个值，你输出的那个值我就拿一个变量来接收你给我输出的那个值
+
+
+3.参数inout的使用(既能输入一个值又能传出来一个值)
+/**
+功能：传一个年龄，自动让年龄增长10岁
+
+*/
+create procedure p3(inout age int)
+begin
+set age:=age+10;
+end$
+注意：调用的时候，我这里需要和大家声明一下，inout型的参数值既是输入类型又是输出类型，你给它一个值，值不是变量，不是变量那out的时候它怎么赋给这个值是不是？
+因此我们需要先设置一个变量并初始化这个值，调用的时候直接传这个变量即可。
+set @currentAge=8$
+call p3(@currentAge)$
+select @currentAge$
+创建并执行完存储过程
+
+
+二.局部变量的使用
+局部变量赋值
+方法一,代码如下:
+mysql> set @name="zhouyinghou";
+Query OK, 0 rows affected (0.00 sec)
+查看局部变量的值
+mysql> select @name; 
++-------------+ 
+| @name       | 
++-------------+ 
+| zhouyinghou | 
++-------------+ 
+1 row in set (0.00 sec) 
+方法二:还可以用select赋值并且将其输出,代码如下:
+mysql> select @sex:="male"; 
++--------------+ 
+| @sex:="male" | 
++--------------+ 
+| male         | 
++--------------+ 
+1 row in set (0.00 sec) 
+方法三:select还可以从一张表中提取,代码如下:
+mysql> drop table zyh; 
+Query OK, 0 rows affected (0.09 sec) 
+mysql> create table zyh(id int,name char(20)); 
+Query OK, 0 rows affected (0.19 sec) 
+mysql> insert into zyh values(1,'zhouyinghou'); 
+Query OK, 1 row affected (0.09 sec) 
+mysql> select @name:=name from zyh; 
++-------------+  --phpfensi.com 
+| @name:=name | 
++-------------+ 
+| zhouyinghou | 
++-------------+ 
+1 row in set (0.00 sec) 
+方法四:这个语句还可以这样写:
+mysql> select name from zyh into @name;
+Query OK,1 row affected (0.00 sec)
+1 row affected说明了数据已经别更新了,代码如下:
+mysql> select @name 
+    -> ; 
++-------------+ 
+| @name       | 
++-------------+ 
+| zhouyinghou | 
++-------------+ 
+1 row in set (0.00 sec) 
+还得注意:@name:=name 和  into @name,into @name只能接受一行值,代码如下:
+mysql> select name from zyh into @name; 
+ERROR 1172 (42000): Result consisted of more than one row 
+mysql> select @name:=name from zyh; 
++-------------+ 
+| @name:=name | 
++-------------+ 
+| zhouyinghou | 
+| zhouhuan    | 
++-------------+ 
+2 rows in set (0.00 sec) 
+mysql> select @name 
+    -> ; 
++----------+ 
+| @name    | 
++----------+ 
+| zhouhuan | 
++----------+ 
+1 row in set (0.00 sec) 
+举例:查询zhouhuan相邻的两个人的名字,如果按照oracle的写法中可以,代码如下:
+mysql> select name from zyh where id in(select id-1,id+1 from zyh where name='zhouhuan');
+ERROR 1241 (21000): Operand should contain 1 column(s)
+mysql中可以用变量赋值进行查询:
+mysql> select id from zyh where name='zhouhuan' into @id; 
+Query OK, 1 row affected (0.00 sec) 
+mysql> select @id; 
++------+ 
+| @id  | 
++------+ 
+|    2 | 
++------+ 
+1 row in set (0.00 sec) 
+mysql> select name from zyh where id=@id-1 or id=@id+1; 
++-------------+ 
+| name        | 
++-------------+ 
+| zhouyinghou | 
+| kaka        | 
++-------------+ 
+2 rows in set (0.00 sec)
+
+三.条件控制的使用
+1.存储过程的条件语句需求：编写存储过程，如果用户my_userId ='APP-2016-00494878'就给出my_userName，
+如果用户my_userId ='APP-2016-7777777'就给出 user_age,
+其他情况返回my_userId
+delimiter $$
+create procedure testf(IN my_userId varchar(32))
+begin
+  declare my_userName varchar(32) DEFAULT'';
+   if(my_userId ='APP-2016-00494878')
+  then
+      select user_name into my_userName from p_app_user where user_id = my_userId;
+      select my_userName;  elseif(my_userId ='APP-2016-7777777')
+  then
+      select user_age into my_userName from p_app_user where user_id = my_userId;
+      select my_userName;else      select my_userId;
+    end if;
+end;
+$$
+delimiter ;
+
+四.循环控制的使用
+1.While循环语句需求：使用循环语句，向表testa(uid)中插入10条连续的记录
+delimiter $$
+create procedure insertdata1()
+begin
+  declare i int DEFAULT 0;
+  while(i<10) DO
+  begin
+    select i;
+    set i=i+1;
+    insert into testa(uid) VALUES(i);
+  end;
+  end while;
+end;
+$$
+delimiter ;
+
+
+3.repeat循环语句需求：使用repeat循环像表插入10条uid连续的记录
+delimiter $$
+create procedure insertdata1()
+begin
+  declare i int DEFAULT 100;
+  repeat
+  begin
+    select i;
+    set i=i+1;
+    insert into testa(uid) VALUES(i);
+  end;
+  until i>=110
+  end repeat;
+end;
+$$
+delimiter ;
